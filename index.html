@@ -4,647 +4,234 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SparkSight</title>
-  <meta name="description" content="SparkSight: flyover-style heatmap hero + a single long page with problem, mission, and plan." />
-
   <style>
-    :root{
-      --bg:#0a0604;
-      --bg2:#120a06;
-      --fg:#ffe9d9;
-      --muted:#d4a574;
-      --dim:#8a6d52;
-      --line:#2a1810;
-
-      --ok:#ff6b35;
-      --warn:#ffb84d;
-      --bad:#d43a00;
-
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      --maxw: 1100px;
-      --shadow: 0 18px 60px rgba(0,0,0,.55);
+    :root {
+      --bg: #080503; --bg2: #100804; --fg: #ffe9d9;
+      --muted: #c9935e; --dim: #7a5c3e; --line: #221208;
+      --accent: #ff6b35; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--mono); }
-
-    /* Subtle terminal grid */
-    body{
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg); color: var(--fg); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+    body {
       background:
-        radial-gradient(900px 520px at 20% 10%, rgba(255,107,53,.12), transparent 60%),
-        repeating-linear-gradient(90deg, rgba(255,150,80,.03) 0 1px, transparent 1px 42px),
+        radial-gradient(900px 520px at 20% 10%, rgba(255,107,53,.10), transparent 60%),
+        repeating-linear-gradient(90deg, rgba(255,150,80,.025) 0 1px, transparent 1px 42px),
         repeating-linear-gradient(0deg, rgba(255,150,80,.02) 0 1px, transparent 1px 42px),
         linear-gradient(var(--bg2), var(--bg));
     }
-
-    a, button { color: inherit; font-family: inherit; }
-    a { text-decoration: none; border-bottom: 1px dashed rgba(212,165,116,.35); }
-    a:hover { border-bottom-color: rgba(255,107,53,.8); color: var(--fg); }
-
-    a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
-      outline: 2px solid var(--ok);
-      outline-offset: 3px;
+    a { color: inherit; text-decoration: none; }
+    nav {
+      position: sticky; top: 0; z-index: 30;
+      background: rgba(8,5,3,.92); border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px); padding: 0 28px;
+      display: flex; align-items: center; height: 48px;
     }
-
-    .wrap{
-      max-width: var(--maxw);
-      margin: 0 auto;
-      padding: 18px 16px 60px;
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 1rem; letter-spacing: .14em; text-transform: uppercase; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 2px rgba(255,107,53,.15)} 50%{box-shadow:0 0 0 6px rgba(255,107,53,.07)} }
+    .hero { display: flex; flex-direction: column; align-items: center; padding: 52px 24px 36px; border-bottom: 1px solid var(--line); gap: 28px; }
+    .hero-copy { text-align: center; max-width: 640px; }
+    h1 { font-size: clamp(2rem,4vw,3rem); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; line-height: 1.08; margin-bottom: 16px; }
+    .lead { font-size: 1.1rem; color: var(--muted); line-height: 1.68; }
+    .flyover-wrap {
+      position: relative; width: 100%; max-width: 980px;
+      aspect-ratio: 16/9; overflow: hidden; border: 1px solid var(--line);
     }
-
-    .skip {
-      position:absolute; left:-999px; top:10px;
-      background: var(--ok); color:#000; padding:10px 12px; font-weight:800;
+    .flyover-wrap::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+      background: repeating-linear-gradient(0deg,rgba(255,200,140,.035) 0 1px,transparent 1px 10px);
     }
-    .skip:focus{ left:12px; z-index:1000; }
-
-    /* Vim-ish statusline */
-    .statusline{
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      background: rgba(5,8,6,.85);
-      backdrop-filter: blur(6px);
-      border-bottom: 1px solid var(--line);
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    }
-    .statusline-inner{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-      padding: 10px 16px;
-      font-size: 0.92rem;
-      letter-spacing: .06em;
-      max-width: var(--maxw);
-      margin: 0 auto;
-    }
-    .left, .right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-
-    .tag{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 6px 10px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.02);
-      color: var(--muted);
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      font-size: .82rem;
-    }
-    .pill{ border-color: rgba(255,107,53,.35); color: var(--fg); }
-    .dot{
-      width:10px; height:10px; border-radius:50%;
-      display:inline-block; background: var(--ok);
-      box-shadow: 0 0 0 3px rgba(255,107,53,.10);
-    }
-    .logo-img{
-      width: 24px; 
-      height: 24px; 
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    /* Hero */
-    .hero{
-      margin-top: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      align-items: center;
-    }
-    .panel{
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.22);
-      box-shadow: var(--shadow);
-    }
-    .panel-pad{ padding: 16px 16px 18px; }
-
-    .kicker{
-      margin:0 0 10px;
-      color: var(--muted);
-      letter-spacing: .16em;
-      text-transform: uppercase;
-      font-weight: 900;
-      font-size: .86rem;
-    }
-    h1{
-      margin:0 0 12px;
-      font-size: clamp(1.6rem, 3.0vw, 2.4rem);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      line-height: 1.12;
-    }
-    .lead{
-      margin: 0 0 14px;
-      color: var(--muted);
-      max-width: 70ch;
-      line-height: 1.55;
-      font-size: 1.02rem;
-    }
-
-    .cta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      border-radius:10px;
-      background: rgba(255,255,255,.02);
-      cursor:pointer;
-      font-weight: 900;
-      letter-spacing: .10em;
-      text-transform: uppercase;
-      font-size: .78rem;
-    }
-    .btn-primary{
-      background: var(--ok);
-      color:#031007;
-      border-color: var(--ok);
-    }
-
-    .metrics{
-      margin-top: 14px;
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:10px;
-    }
-    .metric{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.02);
-      padding: 10px 10px;
-    }
-    .metric dt{
-      color: var(--dim);
-      font-weight: 900;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      font-size: .72rem;
-      margin-bottom: 6px;
-    }
-    .metric dd{
-      margin:0;
-      font-weight: 900;
-      letter-spacing: .06em;
-      color: var(--fg);
-    }
-
-    /* Flyover frame */
-    .flyover{
-      position: relative;
-      aspect-ratio: 16 / 9;
-      overflow: hidden;
-      border-top: 1px solid var(--line);
-    }
-    /* We fake "terrain" offline with generated noise on canvas */
-    canvas{ display:block; }
-    .terrain-canvas{
-      position:absolute; inset:0;
-      width:100%; height:100%;
-      background:#020302;
-      filter: contrast(1.05) brightness(0.92) saturate(1.05);
-    }
-    .heat-canvas{
-      position:absolute; inset:0;
-      width:100%; height:100%;
-      mix-blend-mode: screen;
-      opacity: 0.95;
-    }
-
-    .flyover::after{
-      /* scanlines */
-      content:"";
-      position:absolute; inset:0;
-      background: repeating-linear-gradient(
-        0deg,
-        rgba(231,236,234,.08) 0px,
-        rgba(231,236,234,.08) 1px,
-        transparent 1px,
-        transparent 9px
-      );
-      opacity: .18;
-      pointer-events:none;
-    }
-
-    .hud{
-      position:absolute; inset:0;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      padding: 12px;
-      pointer-events:none;
-    }
-    .hud-row{
-      display:flex; gap:10px; flex-wrap:wrap;
-    }
-    .chip{
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.28);
-      color: rgba(231,236,234,.92);
-      padding: 6px 10px;
-      font-weight: 900;
-      letter-spacing: .10em;
-      text-transform: uppercase;
-      font-size: .72rem;
-    }
-
-    /* Sections (single long page) */
-    .section{
-      margin-top: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.02);
-    }
-    .section-head{
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--line);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      background: rgba(0,0,0,.18);
-    }
-    .section-title{
-      margin:0;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      font-size: .98rem;
-      font-weight: 900;
-    }
-    .section-meta{
-      color: var(--dim);
-      font-weight: 900;
-      letter-spacing: .08em;
-      font-size: .82rem;
-    }
-    .section-body{
-      padding: 14px 14px 18px;
-      color: var(--muted);
-      line-height: 1.65;
-      font-size: 1.01rem;
-    }
-    .bullets{
-      margin: 12px 0 0;
-      padding-left: 18px;
-    }
-    .bullets li{ margin: 8px 0; }
-    .bullets li::marker{ color: rgba(255,107,53,.85); }
-
-    .quote{
-      margin: 14px 0 0;
-      padding: 12px 12px;
-      border-left: 3px solid rgba(255,107,53,.75);
-      background: rgba(255,107,53,.06);
-      color: var(--fg);
-      font-weight: 800;
-      letter-spacing: .02em;
-    }
-
-    .footer{
-      margin-top: 16px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.25);
-      padding: 12px 14px;
-      color: var(--dim);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .footer b{ color: var(--muted); }
-
-    @media (max-width: 980px){
-      .hero{ gap: 12px; }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      * { scroll-behavior: auto !important; }
-    }
+    canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+    .hud { position: absolute; inset: 0; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; z-index: 6; }
+    .hud-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { border: 1px solid rgba(255,200,140,.18); background: rgba(0,0,0,.44); color: rgba(255,220,180,.88); padding: 6px 11px; font-family: var(--mono); font-weight: 900; letter-spacing: .10em; text-transform: uppercase; font-size: .78rem; }
+    .chip-hot { border-color: rgba(255,107,53,.45); color: var(--accent); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 980px; }
+    .stat { border: 1px solid var(--line); padding: 16px 18px; background: rgba(255,255,255,.02); }
+    .stat dt { font-size: .82rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .stat dd { font-size: 1.6rem; font-weight: 900; color: var(--fg); }
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 24px 24px 60px; display: flex; flex-direction: column; gap: 12px; }
+    .section { border: 1px solid var(--line); background: rgba(255,255,255,.015); }
+    .sec-head { text-align: center; padding: 13px 18px; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.22); display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .sec-title { font-size: 1.4rem; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+    .sec-body { padding: 22px 20px 28px; }
+    p { font-size: 1.05rem; color: var(--muted); line-height: 1.7; }
+    .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 28px; text-align: center; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px; text-align: center; }
+    .item-head { font-size: 1.1rem; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; margin-bottom: 8px; }
+    .item-sub { font-size: .96rem; color: var(--dim); font-weight: 900; letter-spacing: .06em; margin-bottom: 10px; }
+    .contact { text-align: center; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; }
+    .email-btn { display: inline-flex; align-items: center; gap: 10px; padding: 16px 28px; border: 1px solid rgba(255,107,53,.4); background: rgba(255,107,53,.06); color: var(--accent); font-family: var(--mono); font-weight: 900; font-size: .96rem; letter-spacing: .10em; text-transform: uppercase; transition: all .15s; }
+    .email-btn:hover { background: rgba(255,107,53,.15); border-color: rgba(255,107,53,.85); }
+    .footer { border: 1px solid var(--line); background: rgba(0,0,0,.25); padding: 14px 18px; font-size: .86rem; color: var(--dim); }
   </style>
 </head>
-
 <body>
-  <a class="skip" href="#main">Skip to content</a>
 
-  <div class="statusline" role="banner" aria-label="Status line">
-    <div class="statusline-inner">
-      <div class="left">
-        <span class="tag pill"><span class="dot" aria-hidden="true"></span> SPARKSIGHT</span>
+<nav>
+  <div class="logo"><span class="dot"></span> SparkSight</div>
+</nav>
+
+<section class="hero">
+  <div class="hero-copy">
+    <h1>Wildfires don't wait.<br>Neither do we.</h1>
+    <p class="lead">SparkSight deploys autonomous drones to detect and suppress wildfires before they spread.</p>
+  </div>
+
+  <div class="flyover-wrap">
+    <canvas id="tC" width="980" height="551"></canvas>
+    <canvas id="hC" width="980" height="551"></canvas>
+    <div class="hud">
+      <div class="hud-row">
+        <span class="chip">SPARKSIGHT · UAV FEED</span>
+        <span class="chip chip-hot">● 5 HOTSPOTS ACTIVE</span>
+        <span class="chip" id="sigChip">SIG: STRONG</span>
+      </div>
+      <div class="hud-row" style="justify-content:space-between;width:100%">
+        <span class="chip">NORCAL SECTOR 7</span>
+        <span class="chip" id="telChip">ALT 1200FT · SPD 42KT · HDG 281°</span>
+        <span class="chip" id="tmChip">T+ 00:00</span>
       </div>
     </div>
   </div>
 
-  <main id="main" class="wrap">
-    <section class="hero">
-      <!-- Hero copy - centered -->
-      <div class="panel" style="width: 100%; max-width: 800px;">
-        <div class="panel-pad" style="text-align: center;">
-          <h1>Wildfires don't wait. Neither do we.</h1>
-          <p class="lead" style="margin: 0 auto;">
-            Aerial robotic system for early wildfire detection and suppression.
-          </p>
+  <div class="stats">
+    <div class="stat"><dt>2025 LA wildfire economic loss</dt><dd>$250B+</dd></div>
+    <div class="stat"><dt>US federal suppression spend</dt><dd>$3.5B/yr</dd></div>
+    <div class="stat"><dt>CA homes at wildfire risk</dt><dd>1.6M</dd></div>
+  </div>
+</section>
+
+<div class="wrap">
+
+  <section class="section">
+    <div class="sec-head"><span class="sec-title" style="color:#d43a00">Problem</span></div>
+    <div class="sec-body">
+      <div class="grid3">
+        <div>
+          <div class="item-head" style="color:#d43a00">Detection delays</div>
+          <p>Most fires go hours before they're initially reported and nearly a full day before aerial response arrives.</p>
+        </div>
+        <div>
+          <div class="item-head" style="color:#d43a00">Remote terrain</div>
+          <p>Many ignitions start behind ridgelines or under canopy smoke isn't visible until the fire is already large.</p>
+        </div>
+        <div>
+          <div class="item-head" style="color:#d43a00">Air response lags</div>
+          <p>Only 0.76% of CA wildfires had aerial response within 20 min of discovery most fires wait through their critical growth window.</p>
         </div>
       </div>
+    </div>
+  </section>
 
-      <!-- Flyover visualization - full width below -->
-      <div class="panel" style="width: 100%; max-width: 1000px;">
-        <div class="flyover" aria-label="Flyover visualization">
-          <canvas class="terrain-canvas" width="1280" height="720"></canvas>
-          <canvas class="heat-canvas" width="1280" height="720" aria-hidden="true"></canvas>
-
-          <div class="hud" aria-hidden="true">
-            <div class="hud-row">
-              <span class="chip">SPARKSIGHT • UAV FEED</span>
-              <span class="chip">MODE: HEATMAP</span>
-              <span class="chip" id="sigChip">SIG: STRONG</span>
-            </div>
-            <div class="hud-row" style="justify-content:space-between; width:100%;">
-              <span class="chip" id="locChip">NORCAL</span>
-              <span class="chip" id="teleChip">ALT 1200FT • SPD 42KT • HDG 281°</span>
-              <span class="chip" id="timeChip">T+ 00:00</span>
-            </div>
-          </div>
+  <section class="section">
+    <div class="sec-head"><span class="sec-title" style="color:#00c9a0">Solution</span></div>
+    <div class="sec-body">
+      <div class="grid2">
+        <div style="border-top:3px solid #00c9a0;padding-top:16px">
+          <div class="item-head" style="color:#00c9a0">Overwatch</div>
+          <div class="item-sub">Detection drone</div>
+          <p>Autonomous patrol. Thermal sensors. Instant coordinate transmission on threat detection.</p>
+        </div>
+        <div style="border-top:3px solid #ff6b35;padding-top:16px">
+          <div class="item-head" style="color:#ff6b35">Guardian</div>
+          <div class="item-sub">Suppression drone</div>
+          <p>Receives coordinates from Overwatch. Deploys retardant at ignition point before fire spreads.</p>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- PROBLEM -->
-    <section id="problem" class="section" aria-labelledby="problem-title">
-      <header class="section-head">
-        <h2 class="section-title" id="problem-title" style="color: #d43a00;">PROBLEM</h2>
-      </header>
-      <div class="section-body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 20px;">
-          <div>
-            <h3 style="color: #d43a00; margin: 0 0 12px; font-size: 1.1rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;">Detection is too slow</h3>
-            <p style="margin: 0; color: var(--muted); line-height: 1.6;">Many fires are discovered <em>hours</em> after ignition.</p>
-          </div>
-          <div>
-            <h3 style="color: #d43a00; margin: 0 0 12px; font-size: 1.1rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;">Hard-to-access terrain</h3>
-            <p style="margin: 0; color: var(--muted); line-height: 1.6;">Hard-to-reach terrain slows early response.</p>
-          </div>
-          <div>
-            <h3 style="color: #d43a00; margin: 0 0 12px; font-size: 1.1rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;">Aerial response can be delayed</h3>
-            <p style="margin: 0; color: var(--muted); line-height: 1.6;">Aircraft must be dispatched, loaded, and flown to the scene.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+  <section class="section">
+    <div class="sec-head"><span class="sec-title" style="color:#ff6b35">Contact</span></div>
+    <div class="contact">
+      <a class="email-btn" href="mailto:Sparksightsystems@gmail.com">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        Sparksightsystems@gmail.com
+      </a>
+    </div>
+  </section>
 
-    <!-- MISSION -->
-    <section id="mission" class="section" aria-labelledby="mission-title">
-      <header class="section-head">
-        <h2 class="section-title" id="mission-title" style="color: #00d9b3;">SOLUTION</h2>
-      </header>
-      <div class="section-body">
-        <p style="margin: 0 0 32px; color: var(--muted); line-height: 1.6; font-size: 1.05rem;">
-          Dual-drone system: Overwatch provides persistent autonomous patrol and detection; Guardian executes rapid-response deployment with onboard fire-suppression.
-        </p>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px;">
-          <div>
-            <h3 style="color: #00d9b3; margin: 0 0 8px; font-size: 1.2rem; font-weight: 900; letter-spacing: .06em;">DETECTION DRONE</h3>
-            <p style="color: #00d9b3; margin: 0 0 12px; font-size: 0.95rem;">(Overwatch)</p>
-            <p style="margin: 0; color: var(--muted); line-height: 1.6;">Continuous aerial patrol. Instant coordinate transmission on threat detection.</p>
-          </div>
-          <div>
-            <h3 style="color: #00d9b3; margin: 0 0 8px; font-size: 1.2rem; font-weight: 900; letter-spacing: .06em;">SUPPRESSION DRONE</h3>
-            <p style="color: #00d9b3; margin: 0 0 12px; font-size: 0.95rem;">(Guardian)</p>
-            <p style="margin: 0; color: var(--muted); line-height: 1.6;">Deploys extinguishing agent at ignition point. Strikes before spread.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+  <footer class="footer">© <span id="yr"></span> SparkSight Systems</footer>
 
-    <!-- CONTACT -->
-    <section id="contact" class="section" aria-labelledby="contact-title">
-      <header class="section-head">
-        <h2 class="section-title" id="contact-title" style="color: var(--ok);">CONTACT US</h2>
-      </header>
-      <div class="section-body" style="text-align: center; padding: 28px 14px;">
-        <p style="margin: 0 0 16px; color: var(--muted); font-size: 1.02rem; line-height: 1.6;">
-          Have questions or want to learn more about SparkSight? Reach out — we'd love to hear from you.
-        </p>
-        <a
-          href="mailto:Sparksightsystems@gmail.com"
-          style="
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 24px;
-            border: 1px solid rgba(255,107,53,.5);
-            background: rgba(255,107,53,.08);
-            color: var(--ok);
-            font-weight: 900;
-            letter-spacing: .10em;
-            text-transform: uppercase;
-            font-size: .92rem;
-            border-bottom: none;
-            transition: background 0.2s, border-color 0.2s;
-          "
-          onmouseover="this.style.background='rgba(255,107,53,.18)'; this.style.borderColor='rgba(255,107,53,.85)';"
-          onmouseout="this.style.background='rgba(255,107,53,.08)'; this.style.borderColor='rgba(255,107,53,.5)';"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-          </svg>
-          Sparksightsystems@gmail.com
-        </a>
-      </div>
-    </section>
+</div>
 
-    <footer class="footer" aria-label="Footer status">
-      <div>© <span id="year"></span> SparkSight</div>
-      <div style="font-size: .82rem;">
-        <a href="mailto:Sparksightsystems@gmail.com" style="color: var(--dim); border-bottom-color: rgba(138,109,82,.35);">Sparksightsystems@gmail.com</a>
-      </div>
-    </footer>
-  </main>
-
-  <script>
-    // Minimal footer year
-    document.getElementById("year").textContent = String(new Date().getFullYear());
-
-    // --- OFFLINE "DRONE FLYOVER" MOCK ---
-    const terrainCanvas = document.querySelector(".terrain-canvas");
-    const heatCanvas = document.querySelector(".heat-canvas");
-
-    const tctx = terrainCanvas.getContext("2d");
-    const hctx = heatCanvas.getContext("2d");
-
-    const W = terrainCanvas.width;
-    const H = terrainCanvas.height;
-
-    const timeChip = document.getElementById("timeChip");
-    const teleChip = document.getElementById("teleChip");
-    const sigChip  = document.getElementById("sigChip");
-
-    function hash2(x, y){
-      let n = x * 374761393 + y * 668265263;
-      n = (n ^ (n >> 13)) * 1274126177;
-      n = n ^ (n >> 16);
-      return (n >>> 0) / 4294967295;
-    }
-
-    function smoothNoise(x, y){
-      const xi = Math.floor(x), yi = Math.floor(y);
-      const xf = x - xi, yf = y - yi;
-      const v00 = hash2(xi, yi);
-      const v10 = hash2(xi + 1, yi);
-      const v01 = hash2(xi, yi + 1);
-      const v11 = hash2(xi + 1, yi + 1);
-      const u = xf * xf * (3 - 2 * xf);
-      const v = yf * yf * (3 - 2 * yf);
-      const a = v00 + (v10 - v00) * u;
-      const b = v01 + (v11 - v01) * u;
-      return a + (b - a) * v;
-    }
-
-    function fbm(x, y){
-      let sum = 0, amp = 0.55, freq = 1.0;
-      for (let i=0;i<5;i++){
-        sum += amp * smoothNoise(x*freq, y*freq);
-        freq *= 2.0; amp *= 0.5;
-      }
-      return sum;
-    }
-
-    const heightmap = new Float32Array(W * H);
-    (function buildHeightmap(){
-      for (let y=0; y<H; y++){
-        for (let x=0; x<W; x++){
-          const nx = x / W, ny = y / H;
-          let e = fbm(nx * 6.0, ny * 6.0);
-          e = Math.pow(e, 1.7);
-          heightmap[y*W + x] = e;
-        }
-      }
-    })();
-
-    function sampleHeight(u, v){
-      u = (u % 1 + 1) % 1; v = (v % 1 + 1) % 1;
-      const x = Math.floor(u * (W-1));
-      const y = Math.floor(v * (H-1));
-      return heightmap[y*W + x];
-    }
-
-    function shadeTerrain(offsetU, offsetV, pitch){
-      const img = tctx.createImageData(W, H);
-      const data = img.data;
-      const lightDirX = -0.6, lightDirY = -0.5;
-      for (let y=0; y<H; y++){
-        const v = y / H;
-        for (let x=0; x<W; x++){
-          const u = x / W;
-          const vv = Math.pow(v, 1.15 + pitch);
-          const h0 = sampleHeight(u + offsetU, vv + offsetV);
-          const hx = sampleHeight(u + offsetU + 1/W, vv + offsetV);
-          const hy = sampleHeight(u + offsetU, vv + offsetV + 1/H);
-          const dx = (hx - h0) * 22.0, dy = (hy - h0) * 22.0;
-          let shade = 0.75 - (dx * lightDirX + dy * lightDirY);
-          shade = Math.max(0, Math.min(1, shade));
-          const base = 40 + h0 * 170;
-          const val = base * shade;
-          const idx = (y*W + x) * 4;
-          data[idx+0] = val; data[idx+1] = val; data[idx+2] = val; data[idx+3] = 255;
-        }
-      }
-      tctx.putImageData(img, 0, 0);
-      const grd = tctx.createRadialGradient(W*0.55, H*0.45, 80, W*0.55, H*0.45, Math.max(W,H)*0.75);
-      grd.addColorStop(0, "rgba(0,0,0,0)");
-      grd.addColorStop(1, "rgba(0,0,0,0.55)");
-      tctx.fillStyle = grd;
-      tctx.fillRect(0,0,W,H);
-    }
-
-    const heatPoints = [
-      { x: 0.30, y: 0.45, base: 0.80, lat: 38.5816, lon: -121.4944 },
-      { x: 0.42, y: 0.52, base: 0.95, lat: 38.5891, lon: -121.4712 },
-      { x: 0.55, y: 0.48, base: 0.70, lat: 38.5734, lon: -121.4523 },
-      { x: 0.68, y: 0.55, base: 0.85, lat: 38.5952, lon: -121.4289 },
-      { x: 0.60, y: 0.40, base: 0.55, lat: 38.5678, lon: -121.4401 },
-    ];
-
-    function heatColor(t){
-      t = Math.max(0, Math.min(1, t));
-      let r,g,b,a;
-      if (t < 0.6){ r=220;g=80;b=40;a=0.55; }
-      else if (t < 0.85){ r=255;g=160;b=50;a=0.62; }
-      else { r=255;g=220;b=80;a=0.78; }
-      return `rgba(${r},${g},${b},${a})`;
-    }
-
-    function drawHeat(offsetU, offsetV, t){
-      hctx.clearRect(0,0,W,H);
-      for (const p of heatPoints){
-        const pxNorm = (p.x + offsetU * 0.3) % 1;
-        const pyNorm = (p.y + offsetV * 0.3) % 1;
-        const px = pxNorm * W;
-        const pyN = pyNorm;
-        const py = Math.pow(pyN, 1.15) * H;
-        const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + (p.x+p.y)*10.0);
-        const r = (140 + 110*p.base) * (0.95 + 0.10*pulse);
-        const grad = hctx.createRadialGradient(px, py, 0, px, py, r);
-        grad.addColorStop(0.00, heatColor(0.95*p.base));
-        grad.addColorStop(0.35, heatColor(0.70*p.base));
-        grad.addColorStop(0.72, "rgba(220,60,40,0.28)");
-        grad.addColorStop(1.00, "rgba(220,60,40,0.00)");
-        hctx.fillStyle = grad;
-        hctx.beginPath();
-        hctx.arc(px, py, r, 0, Math.PI*2);
-        hctx.fill();
-        hctx.strokeStyle = "rgba(231,236,234,0.55)";
-        hctx.lineWidth = 1;
-        hctx.strokeRect(px - 8, py - 8, 16, 16);
-        const labelPulse = 0.6 + 0.4 * Math.sin(t * 3 + p.x * 5);
-        const triSize = 8;
-        const triY = py - r - 50;
-        hctx.beginPath();
-        hctx.moveTo(px, triY - triSize);
-        hctx.lineTo(px - triSize, triY + triSize);
-        hctx.lineTo(px + triSize, triY + triSize);
-        hctx.closePath();
-        hctx.fillStyle = `rgba(255, 107, 53, ${labelPulse})`;
-        hctx.fill();
-        hctx.strokeStyle = `rgba(255, 220, 80, ${labelPulse * 0.8})`;
-        hctx.lineWidth = 2;
-        hctx.stroke();
-        hctx.font = "900 14px monospace";
-        hctx.fillStyle = `rgba(255, 107, 53, ${labelPulse})`;
-        hctx.textAlign = "center";
-        hctx.fillText("HOTSPOT DETECTED", px, py - r - 30);
-        hctx.font = "700 11px monospace";
-        hctx.fillStyle = `rgba(255, 220, 80, ${labelPulse * 0.9})`;
-        hctx.fillText(`${p.lat.toFixed(4)}°N ${Math.abs(p.lon).toFixed(4)}°W`, px, py - r - 15);
-      }
-    }
-
-    let start = performance.now();
-    function loop(now){
-      const t = (now - start) / 1000;
-      const speed = 0.035;
-      const offsetU = t * speed;
-      const offsetV = t * speed * 0.55;
-      const pitch = 0.15 + 0.05 * Math.sin(t * 0.45);
-      shadeTerrain(offsetU, offsetV, pitch);
-      drawHeat(offsetU, offsetV, t);
-      if (timeChip) timeChip.textContent = "T+ " + String(Math.floor(t)).padStart(2,"0") + ":" + String(Math.floor((t*10)%60)).padStart(2,"0");
-      if (teleChip){
-        const alt = 1200 + Math.round(70*Math.sin(t*0.35));
-        const spd = 42 + Math.round(3*Math.cos(t*0.42));
-        const hdg = 281 + Math.round(4*Math.sin(t*0.22));
-        teleChip.textContent = `ALT ${alt}FT • SPD ${spd}KT • HDG ${hdg}°`;
-      }
-      if (sigChip){
-        const s = 0.5 + 0.5*Math.sin(t*0.9);
-        sigChip.textContent = s > 0.66 ? "SIG: STRONG" : (s > 0.33 ? "SIG: MOD" : "SIG: WEAK");
-      }
-      if (Math.random() < 0.012){
-        heatCanvas.style.opacity = "0.75";
-        setTimeout(()=> heatCanvas.style.opacity = "0.95", 60);
-      }
-      requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-  </script>
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+const tC=document.getElementById('tC'),hC=document.getElementById('hC');
+const tctx=tC.getContext('2d'),hctx=hC.getContext('2d');
+const W=tC.width,H=tC.height;
+function hash2(x,y){let n=x*374761393+y*668265263;n=(n^(n>>13))*1274126177;return((n^(n>>16))>>>0)/4294967295}
+function sN(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);return hash2(xi,yi)+(hash2(xi+1,yi)-hash2(xi,yi))*u+(hash2(xi,yi+1)-hash2(xi,yi))*v+(hash2(xi+1,yi+1)-hash2(xi+1,yi)-hash2(xi,yi+1)+hash2(xi,yi))*u*v}
+function fbm(x,y){let s=0,a=0.55,f=1;for(let i=0;i<5;i++){s+=a*sN(x*f,y*f);f*=2;a*=0.5}return s}
+const hmap=new Float32Array(W*H);
+for(let y=0;y<H;y++)for(let x=0;x<W;x++)hmap[y*W+x]=Math.pow(fbm(x/W*6,y/H*6),1.7);
+function sH(u,v){u=((u%1)+1)%1;v=((v%1)+1)%1;return hmap[Math.floor(v*(H-1))*W+Math.floor(u*(W-1))]}
+function drawT(ou,ov,pitch){
+  const img=tctx.createImageData(W,H),d=img.data;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const u=x/W,vv=Math.pow(y/H,1.15+pitch);
+    const h0=sH(u+ou,vv+ov),hx=sH(u+ou+1/W,vv+ov),hy=sH(u+ou,vv+ov+1/H);
+    let sh=Math.max(0,Math.min(1,0.75-((hx-h0)*22*-.6+(hy-h0)*22*-.5)));
+    const b=(40+h0*160)*sh,i=(y*W+x)*4;
+    d[i]=b*.88;d[i+1]=b*.70;d[i+2]=b*.55;d[i+3]=255;
+  }
+  tctx.putImageData(img,0,0);
+  const g=tctx.createRadialGradient(W*.55,H*.45,60,W*.55,H*.45,Math.max(W,H)*.75);
+  g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.5)');
+  tctx.fillStyle=g;tctx.fillRect(0,0,W,H);
+}
+const pts=[
+  {x:.28,y:.44,b:.88,lat:38.5816,lon:-121.4944},
+  {x:.44,y:.52,b:.96,lat:38.5891,lon:-121.4712},
+  {x:.58,y:.46,b:.72,lat:38.5734,lon:-121.4523},
+  {x:.70,y:.55,b:.84,lat:38.5952,lon:-121.4289},
+  {x:.62,y:.38,b:.60,lat:38.5678,lon:-121.4401},
+];
+function hCol(t){t=Math.max(0,Math.min(1,t));if(t<.5)return`rgba(220,60,30,${.5+t*.3})`;if(t<.8)return`rgba(255,150,40,${.55+t*.25})`;return`rgba(255,220,70,${.72+t*.18})`}
+function drawH(ou,ov,t){
+  hctx.clearRect(0,0,W,H);
+  hctx.strokeStyle='rgba(0,201,160,.45)';hctx.lineWidth=1;hctx.setLineDash([4,5]);
+  for(let i=0;i<pts.length-1;i++){
+    const ax=((pts[i].x+ou*.28)%1)*W,ay=Math.pow((pts[i].y+ov*.28)%1,1.15)*H;
+    const bx=((pts[i+1].x+ou*.28)%1)*W,by=Math.pow((pts[i+1].y+ov*.28)%1,1.15)*H;
+    hctx.beginPath();hctx.moveTo(ax,ay);hctx.lineTo(bx,by);hctx.stroke();
+  }
+  hctx.setLineDash([]);
+  for(const p of pts){
+    const px=((p.x+ou*.28)%1)*W,py=Math.pow((p.y+ov*.28)%1,1.15)*H;
+    const pulse=0.5+0.5*Math.sin(t*2.2+(p.x+p.y)*9);
+    const r=(130+120*p.b)*(0.94+0.12*pulse);
+    const gr=hctx.createRadialGradient(px,py,0,px,py,r);
+    gr.addColorStop(0,hCol(p.b*.95));gr.addColorStop(.3,hCol(p.b*.65));
+    gr.addColorStop(.7,'rgba(210,50,30,.2)');gr.addColorStop(1,'rgba(210,50,30,0)');
+    hctx.fillStyle=gr;hctx.beginPath();hctx.arc(px,py,r,0,Math.PI*2);hctx.fill();
+    hctx.strokeStyle='rgba(255,220,180,.4)';hctx.lineWidth=1;hctx.strokeRect(px-8,py-8,16,16);
+    const lp=0.55+0.45*Math.sin(t*3+p.x*5),ty=py-r-46;
+    hctx.beginPath();hctx.moveTo(px,ty-8);hctx.lineTo(px-7,ty+7);hctx.lineTo(px+7,ty+7);hctx.closePath();
+    hctx.fillStyle=`rgba(255,107,53,${lp})`;hctx.fill();
+    hctx.strokeStyle=`rgba(255,220,70,${lp*.8})`;hctx.lineWidth=1.5;hctx.stroke();
+    hctx.font='800 12px monospace';hctx.fillStyle=`rgba(255,107,53,${lp})`;hctx.textAlign='center';
+    hctx.fillText('HOTSPOT',px,ty-18);
+    hctx.font='700 10px monospace';hctx.fillStyle=`rgba(255,210,80,${lp*.9})`;
+    hctx.fillText(`${p.lat.toFixed(4)}N ${Math.abs(p.lon).toFixed(4)}W`,px,ty-6);
+  }
+}
+const start=performance.now();
+const tmChip=document.getElementById('tmChip'),telChip=document.getElementById('telChip'),sigChip=document.getElementById('sigChip');
+function loop(now){
+  const t=(now-start)/1e3,ou=t*.034,ov=t*.019;
+  drawT(ou,ov,0.15+0.05*Math.sin(t*.4));
+  drawH(ou,ov,t);
+  tmChip.textContent='T+ '+String(Math.floor(t)).padStart(2,'0')+':'+String(Math.floor((t*10)%60)).padStart(2,'0');
+  const alt=1200+Math.round(70*Math.sin(t*.35)),spd=42+Math.round(3*Math.cos(t*.42)),hdg=281+Math.round(4*Math.sin(t*.22));
+  telChip.textContent=`ALT ${alt}FT · SPD ${spd}KT · HDG ${hdg}`;
+  const s=0.5+0.5*Math.sin(t*.9);
+  sigChip.textContent=s>.66?'SIG: STRONG':(s>.33?'SIG: MOD':'SIG: WEAK');
+  if(Math.random()<.012)hC.style.opacity='.72',setTimeout(()=>hC.style.opacity='.95',55);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
